@@ -5,113 +5,58 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Moderációs Panel</title>
     <style>
-        body { 
-            font-family: 'Segoe UI', Arial, sans-serif; 
-            background: #0f172a; 
-            color: #f8fafc; 
-            padding: 20px; 
-            margin: 0;
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #0f172a; color: #f8fafc; padding: 20px; margin: 0; }
+        .container { max-width: 600px; margin: 0 auto; }
+        h2 { color: #38bdf8; border-bottom: 2px solid #334155; padding-bottom: 10px; margin-top: 0; }
+        
+        /* ÚJ: Kiemelt Admin doboz stílusa */
+        .admin-pin-box {
+            background: #1e1b4b;
+            border-left: 6px solid #a855f7;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
         }
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
-        }
-        h2 { 
-            color: #38bdf8; 
-            border-bottom: 2px solid #334155; 
-            padding-bottom: 10px;
-            margin-top: 0;
-        }
-        #list { 
-            display: flex; 
-            flex-direction: column; 
-            gap: 15px; 
-            margin-top: 20px;
-        }
-        .item { 
-            background: #1e293b; 
-            padding: 20px; 
-            border-radius: 8px; 
-            display: flex; 
-            flex-direction: column; 
-            justify-content: space-between; 
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-        }
-        /* Megkülönböztető szegélyek */
-        .pending { border-left: 6px solid #f59e0b; } /* Várakozik - Narancs */
-        .approved { border-left: 6px solid #22c55e; } /* TV-n van - Zöld */
+        .admin-pin-box h3 { margin-top: 0; color: #d8b4fe; font-size: 14pt; }
+        .admin-input { width: 100%; padding: 12px; border-radius: 6px; border: none; font-size: 12pt; margin-bottom: 10px; box-sizing: border-box; }
+        .btn-pin { background: #9333ea; color: white; padding: 10px 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .btn-pin:hover { background: #7e22ce; }
 
-        @media(min-width: 480px) {
-            .item {
-                flex-direction: row;
-                align-items: center;
-            }
-        }
-        .content-box {
-            margin-bottom: 15px;
-        }
-        @media(min-width: 480px) {
-            .content-box {
-                margin-bottom: 0;
-                padding-right: 15px;
-            }
-        }
-        .status-badge {
-            font-size: 8pt;
-            text-transform: uppercase;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-weight: bold;
-            margin-left: 10px;
-        }
+        #list { display: flex; flex-direction: column; gap: 15px; }
+        .item { background: #1e293b; padding: 20px; border-radius: 8px; display: flex; flex-direction: column; justify-content: space-between; }
+        .pending { border-left: 6px solid #f59e0b; } 
+        .approved { border-left: 6px solid #22c55e; }
+        @media(min-width: 480px) { .item { flex-direction: row; align-items: center; } }
+        .content-box { margin-bottom: 15px; }
+        .status-badge { font-size: 8pt; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; font-weight: bold; margin-left: 10px; }
         .badge-pending { background: #7c2d12; color: #fdba74; }
         .badge-approved { background: #064e3b; color: #6ee7b7; }
-
-        .sender { 
-            font-weight: bold; 
-            color: #f43f5e; 
-            font-size: 12pt;
-        }
-        .text {
-            font-size: 14pt;
-            margin: 5px 0;
-            color: #e2e8f0;
-        }
-        .date { 
-            font-size: 9pt; 
-            color: #94a3b8; 
-        }
-        .actions {
-            display: flex;
-            gap: 10px;
-            flex-shrink: 0;
-        }
-        .btn { 
-            background: #22c55e; 
-            border: none; 
-            color: white; 
-            padding: 10px 20px; 
-            border-radius: 6px; 
-            cursor: pointer; 
-            font-weight: bold; 
-            font-size: 11pt;
-            transition: background 0.2s;
-        }
+        .sender { font-weight: bold; color: #f43f5e; font-size: 12pt; }
+        .text { font-size: 14pt; margin: 5px 0; color: #e2e8f0; }
+        .date { font-size: 9pt; color: #94a3b8; }
+        .actions { display: flex; gap: 10px; flex-shrink: 0; }
+        .btn { background: #22c55e; border: none; color: white; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 11pt; transition: background 0.2s; }
         .btn:hover { background: #16a34a; }
         .btn-del { background: #ef4444; }
         .btn-del:hover { background: #dc2626; }
-        .empty-msg {
-            color: #94a3b8;
-            font-style: italic;
-            text-align: center;
-            margin-top: 30px;
-        }
+        .empty-msg { color: #94a3b8; font-style: italic; text-align: center; margin-top: 30px; }
     </style>
 </head>
 <body>
 
     <div class="container">
         <h2>Üzenetek Kezelése & Moderáció</h2>
+
+        <div class="admin-pin-box">
+            <h3>📌 Kiemelt Admin Üzenet (TV Tetejére)</h3>
+            <input type="text" id="admin-msg" class="admin-input" placeholder="Ide írd a fontos közleményt...">
+            <div>
+                <button id="btn-pin" class="btn-pin">TV-re Kitűz</button>
+                <button id="btn-unpin" class="btn btn-del" style="margin-left: 10px;">Levétel a TV-ről</button>
+            </div>
+        </div>
+
         <div id="list">
             <p class="empty-msg">Betöltés...</p>
         </div>
@@ -119,9 +64,9 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getFirestore, collection, query, onSnapshot, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getFirestore, collection, query, onSnapshot, doc, updateDoc, deleteDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-        // MÁSOLD IDE A SAJÁT FIREBASE CONFIG ADATAIDAT
+        // IDE MÁSOLD BE A FIREBASE KULCSAIDAT! (apiKey, authDomain, projectId)
         const firebaseConfig = { 
             apiKey: "AIzaSyDS6UEeb9o5XT7hCBOHMw-nADQkQrEXRIk", 
             authDomain: "ootv-9ad58.firebaseapp.com", 
@@ -131,37 +76,57 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // KIVETTEM A SZŰRÉST: Mostantól az ÖSSZES üzenetet behozzuk (jóváhagyottat és várakozót is)
+        // --- ÚJ: Admin üzenet kitűzése funkció ---
+        document.getElementById('btn-pin').addEventListener('click', async () => {
+            const text = document.getElementById('admin-msg').value;
+            if(!text) { alert("Kérlek, írj be egy szöveget a kitűzéshez!"); return; }
+            try {
+                // Egy fix azonosítójú (PINNED_MESSAGE) dokumentumot hozunk létre
+                await setDoc(doc(db, "messages", "PINNED_MESSAGE"), {
+                    name: "ADMIN",
+                    text: text,
+                    date: new Date().toLocaleTimeString('hu-HU', {hour: '2-digit', minute:'2-digit'}),
+                    approved: true,
+                    isPinned: true
+                });
+                alert("Üzenet sikeresen kitűzve a TV-re!");
+                document.getElementById('admin-msg').value = "";
+            } catch (err) { alert("Hiba: " + err.message); }
+        });
+
+        // --- ÚJ: Admin üzenet levétele ---
+        document.getElementById('btn-unpin').addEventListener('click', async () => {
+            try {
+                await deleteDoc(doc(db, "messages", "PINNED_MESSAGE"));
+                alert("A kitűzött üzenet lekerült a TV-ről!");
+            } catch (err) { /* Ha nincs, nem baj */ }
+        });
+
+        // --- Eredeti üzenetlista ---
         const q = query(collection(db, "messages"));
         
         onSnapshot(q, (snapshot) => {
             const list = document.getElementById('list');
             list.innerHTML = "";
-            
-            if (snapshot.empty) {
-                list.innerHTML = '<p class="empty-msg">Nincs egyetlen üzenet sem az adatbázisban. Rendszer kész! 😊</p>';
-                return;
-            }
+            let hasNormalMessage = false;
             
             snapshot.forEach((documentSnap) => {
+                if(documentSnap.id === "PINNED_MESSAGE") return; // A kitűzött üzenetet nem listázzuk itt alul
+                hasNormalMessage = true;
+
                 const data = documentSnap.data();
                 const id = documentSnap.id;
                 
-                // Osztályok és gombok beállítása az állapot alapján
                 const isApproved = data.approved === true;
                 const statusClass = isApproved ? 'approved' : 'pending';
                 const badge = isApproved 
                     ? '<span class="status-badge badge-approved">TV-n Élőben</span>' 
                     : '<span class="status-badge badge-pending">Várakozik</span>';
                 
-                // Ha már jóvá van hagyva, elrejtjük a "TV-re küld" gombot, csak a Törlés marad
-                const approveButton = isApproved 
-                    ? '' 
-                    : `<button class="btn btn-approve" data-id="${id}">TV-re küld</button>`;
+                const approveButton = isApproved ? '' : `<button class="btn btn-approve" data-id="${id}">TV-re küld</button>`;
                 
                 const div = document.createElement('div');
                 div.className = `item ${statusClass}`;
-                
                 div.innerHTML = `
                     <div class="content-box">
                         <div class="sender">${data.name} ${badge}</div>
@@ -173,32 +138,25 @@
                         <button class="btn btn-del" data-id="${id}">Töröl</button>
                     </div>
                 `;
-                
                 list.appendChild(div);
             });
 
-            // "TV-re küld" gombok eseménykezelője
+            if(!hasNormalMessage) {
+                list.innerHTML = '<p class="empty-msg">Nincs egyetlen üzenet sem. Rendszer kész!</p>';
+            }
+
             document.querySelectorAll('.btn-approve').forEach(button => {
                 button.addEventListener('click', async (e) => {
                     const id = e.target.getAttribute('data-id');
-                    try {
-                        await updateDoc(doc(db, "messages", id), { approved: true });
-                    } catch (err) {
-                        alert("Hiba a jóváhagyás során: " + err.message);
-                    }
+                    await updateDoc(doc(db, "messages", id), { approved: true });
                 });
             });
 
-            // "Töröl" gombok eseménykezelője (működik a jóváhagyottakon is!)
             document.querySelectorAll('.btn-del').forEach(button => {
                 button.addEventListener('click', async (e) => {
                     const id = e.target.getAttribute('data-id');
-                    if(confirm("Biztosan törölni szeretnéd ezt az üzenetet? (Ha a TV-n kint van, onnan is azonnal eltűnik!)")) {
-                        try {
-                            await deleteDoc(doc(db, "messages", id));
-                        } catch (err) {
-                            alert("Hiba a törlés során: " + err.message);
-                        }
+                    if(confirm("Biztosan törölni szeretnéd ezt az üzenetet?")) {
+                        await deleteDoc(doc(db, "messages", id));
                     }
                 });
             });
