@@ -169,3 +169,40 @@
                         <div class="date">${data.date}</div>
                     </div>
                     <div class="actions">
+                        ${approveButton}
+                        <button class="btn btn-del" data-id="${id}">Töröl</button>
+                    </div>
+                `;
+                
+                list.appendChild(div);
+            });
+
+            // "TV-re küld" gombok eseménykezelője
+            document.querySelectorAll('.btn-approve').forEach(button => {
+                button.addEventListener('click', async (e) => {
+                    const id = e.target.getAttribute('data-id');
+                    try {
+                        await updateDoc(doc(db, "messages", id), { approved: true });
+                    } catch (err) {
+                        alert("Hiba a jóváhagyás során: " + err.message);
+                    }
+                });
+            });
+
+            // "Töröl" gombok eseménykezelője (működik a jóváhagyottakon is!)
+            document.querySelectorAll('.btn-del').forEach(button => {
+                button.addEventListener('click', async (e) => {
+                    const id = e.target.getAttribute('data-id');
+                    if(confirm("Biztosan törölni szeretnéd ezt az üzenetet? (Ha a TV-n kint van, onnan is azonnal eltűnik!)")) {
+                        try {
+                            await deleteDoc(doc(db, "messages", id));
+                        } catch (err) {
+                            alert("Hiba a törlés során: " + err.message);
+                        }
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
