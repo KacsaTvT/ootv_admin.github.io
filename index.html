@@ -9,15 +9,7 @@
         .container { max-width: 600px; margin: 0 auto; }
         h2 { color: #38bdf8; border-bottom: 2px solid #334155; padding-bottom: 10px; margin-top: 0; }
         
-        /* ÚJ: Kiemelt Admin doboz stílusa */
-        .admin-pin-box {
-            background: #1e1b4b;
-            border-left: 6px solid #a855f7;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 30px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-        }
+        .admin-pin-box { background: #1e1b4b; border-left: 6px solid #a855f7; padding: 20px; border-radius: 8px; margin-bottom: 30px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
         .admin-pin-box h3 { margin-top: 0; color: #d8b4fe; font-size: 14pt; }
         .admin-input { width: 100%; padding: 12px; border-radius: 6px; border: none; font-size: 12pt; margin-bottom: 10px; box-sizing: border-box; }
         .btn-pin { background: #9333ea; color: white; padding: 10px 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
@@ -32,7 +24,10 @@
         .status-badge { font-size: 8pt; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; font-weight: bold; margin-left: 10px; }
         .badge-pending { background: #7c2d12; color: #fdba74; }
         .badge-approved { background: #064e3b; color: #6ee7b7; }
+        
         .sender { font-weight: bold; color: #f43f5e; font-size: 12pt; }
+        .recipient-text { color: #38bdf8; } /* Címzett jelölő színe az adminon */
+        
         .text { font-size: 14pt; margin: 5px 0; color: #e2e8f0; }
         .date { font-size: 9pt; color: #94a3b8; }
         .actions { display: flex; gap: 10px; flex-shrink: 0; }
@@ -66,7 +61,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getFirestore, collection, query, onSnapshot, doc, updateDoc, deleteDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-        // IDE MÁSOLD BE A FIREBASE KULCSAIDAT! (apiKey, authDomain, projectId)
+        // IDE MÁSOLD BE A SAJÁT KULCSAIDAT!
         const firebaseConfig = { 
             apiKey: "AIzaSyDS6UEeb9o5XT7hCBOHMw-nADQkQrEXRIk", 
             authDomain: "ootv-9ad58.firebaseapp.com", 
@@ -76,12 +71,10 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // --- ÚJ: Admin üzenet kitűzése funkció ---
         document.getElementById('btn-pin').addEventListener('click', async () => {
             const text = document.getElementById('admin-msg').value;
             if(!text) { alert("Kérlek, írj be egy szöveget a kitűzéshez!"); return; }
             try {
-                // Egy fix azonosítójú (PINNED_MESSAGE) dokumentumot hozunk létre
                 await setDoc(doc(db, "messages", "PINNED_MESSAGE"), {
                     name: "ADMIN",
                     text: text,
@@ -94,15 +87,13 @@
             } catch (err) { alert("Hiba: " + err.message); }
         });
 
-        // --- ÚJ: Admin üzenet levétele ---
         document.getElementById('btn-unpin').addEventListener('click', async () => {
             try {
                 await deleteDoc(doc(db, "messages", "PINNED_MESSAGE"));
                 alert("A kitűzött üzenet lekerült a TV-ről!");
-            } catch (err) { /* Ha nincs, nem baj */ }
+            } catch (err) { }
         });
 
-        // --- Eredeti üzenetlista ---
         const q = query(collection(db, "messages"));
         
         onSnapshot(q, (snapshot) => {
@@ -111,7 +102,7 @@
             let hasNormalMessage = false;
             
             snapshot.forEach((documentSnap) => {
-                if(documentSnap.id === "PINNED_MESSAGE") return; // A kitűzött üzenetet nem listázzuk itt alul
+                if(documentSnap.id === "PINNED_MESSAGE") return;
                 hasNormalMessage = true;
 
                 const data = documentSnap.data();
@@ -125,11 +116,17 @@
                 
                 const approveButton = isApproved ? '' : `<button class="btn btn-approve" data-id="${id}">TV-re küld</button>`;
                 
+                // --- ÚJ: Címzett mutatása az Adminon ---
+                let adminSenderText = data.name;
+                if(data.recipient && data.recipient.trim() !== "") {
+                    adminSenderText += ` ➔ <span class="recipient-text">Neki: ${data.recipient}</span>`;
+                }
+                
                 const div = document.createElement('div');
                 div.className = `item ${statusClass}`;
                 div.innerHTML = `
                     <div class="content-box">
-                        <div class="sender">${data.name} ${badge}</div>
+                        <div class="sender">${adminSenderText} ${badge}</div>
                         <div class="text">"${data.text}"</div>
                         <div class="date">${data.date}</div>
                     </div>
