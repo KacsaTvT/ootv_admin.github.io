@@ -32,7 +32,7 @@ projectId: "ootv-9ad58" };
  const id = documentSnap.id;
  const div = document.createElement('div');
  div.className = 'item';
- div.innerHTML = `
+ div.innerHTML = 
  <div>
  <strong>${data.name}</strong>: ${data.text} <br><small>$
 {data.date}</small>
@@ -42,7 +42,7 @@ projectId: "ootv-9ad58" };
  <button class="btn btn-del" onclick="reject('${id}')">Töröl</
 button>
  </div>
- `;
+ ;
  list.appendChild(div);
  });
  });
