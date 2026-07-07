@@ -79,7 +79,7 @@
         // IDE MÁSOLD BE A SAJÁT FIREBASE KULCSAIDAT!
         const firebaseConfig = { apiKey: "AIzaSyDS6UEeb9o5XT7hCBOHMw-nADQkQrEXRIk", authDomain: "ootv-9ad58.firebaseapp.com", projectId: "ootv-9ad58" };
         
-        // "admin2026" SHA-256 lenyomata
+        // Az "" jelszó lenyomata
         const validHash = "19cdbb7216dd0ba5d319eb7e69044ce57767e82342c72d7ace9497b9403c7001";
 
         async function hashPassword(password) {
@@ -121,21 +121,34 @@
             onSnapshot(q, (snapshot) => {
                 const list = document.getElementById('list');
                 list.innerHTML = "";
-                let hasNormalMessage = false;
+                let messagesArray = [];
                 
                 snapshot.forEach((documentSnap) => {
                     if(documentSnap.id === "PINNED_MESSAGE") return;
-                    hasNormalMessage = true;
 
                     const data = documentSnap.data();
-                    const id = documentSnap.id;
+                    data.id = documentSnap.id;
                     
+                    // JAVÍTÁS: Ha a szerveridő még nem jött meg, használjuk az azonnali mostani időt (Date.now())
+                    data.sortTime = data.timestamp?.toMillis ? data.timestamp.toMillis() : Date.now();
+                    messagesArray.push(data);
+                });
+
+                // Admin listát is csökkenő sorrendbe rendezzük
+                messagesArray.sort((a, b) => b.sortTime - a.sortTime);
+
+                if(messagesArray.length === 0) {
+                    list.innerHTML = '<p class="empty-msg">Nincs egyetlen üzenet sem.</p>'; 
+                    return;
+                }
+
+                messagesArray.forEach((data) => {
+                    const id = data.id;
                     const isApproved = data.approved === true;
                     const statusClass = isApproved ? 'approved' : 'pending';
                     const badge = isApproved ? '<span class="status-badge badge-approved">TV-n Élőben</span>' : '<span class="status-badge badge-pending">Várakozik</span>';
                     const approveButton = isApproved ? '' : `<button class="btn btn-approve" data-id="${id}">TV-re küld</button>`;
                     
-                    // Ajándék címke az admin panelen is
                     const giftTag = data.isGift ? '<span class="gift-tag">🎁 AJÁNDÉK</span>' : '';
 
                     let adminSenderText = data.name;
@@ -158,8 +171,6 @@
                     `;
                     list.appendChild(div);
                 });
-
-                if(!hasNormalMessage) { list.innerHTML = '<p class="empty-msg">Nincs egyetlen üzenet sem.</p>'; }
 
                 document.querySelectorAll('.btn-approve').forEach(btn => {
                     btn.addEventListener('click', async (e) => { await updateDoc(doc(db, "messages", e.target.getAttribute('data-id')), { approved: true }); });
