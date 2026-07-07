@@ -8,14 +8,12 @@
         body { font-family: 'Segoe UI', Arial, sans-serif; background: #0f172a; color: #f8fafc; padding: 20px; margin: 0; }
         .container { max-width: 600px; margin: 0 auto; }
         
-        /* Belépő képernyő */
         #login-screen { text-align: center; margin-top: 50px; background: #1e293b; padding: 40px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
         #login-screen input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 6px; border: none; font-size: 11pt; box-sizing: border-box; text-align: center; }
         #btn-login { width: 100%; background: #38bdf8; color: #0f172a; padding: 12px; border: none; border-radius: 6px; font-weight: bold; font-size: 12pt; cursor: pointer; margin-top: 10px; }
         #btn-login:hover { background: #0ea5e9; }
         #login-error { color: #ef4444; margin-top: 10px; display: none; }
 
-        /* Admin UI (alapból rejtve) */
         #admin-screen { display: none; }
         .header-flex { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #334155; padding-bottom: 10px; margin-bottom: 20px; }
         h2 { color: #38bdf8; margin: 0; }
@@ -26,16 +24,19 @@
         .btn-pin { background: #9333ea; color: white; padding: 10px 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
         
         #list { display: flex; flex-direction: column; gap: 15px; }
-        .item { background: #1e293b; padding: 20px; border-radius: 8px; display: flex; justify-content: space-between; }
+        .item { background: #1e293b; padding: 20px; border-radius: 8px; display: flex; justify-content: space-between; flex-direction: column;}
+        @media(min-width: 480px) { .item { flex-direction: row; align-items: center; } }
         .pending { border-left: 6px solid #f59e0b; } 
         .approved { border-left: 6px solid #22c55e; }
-        .content-box { margin-bottom: 0; padding-right: 15px; }
+        .content-box { margin-bottom: 15px; padding-right: 15px; }
+        @media(min-width: 480px) { .content-box { margin-bottom: 0; } }
         .status-badge { font-size: 8pt; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; font-weight: bold; margin-left: 10px; }
         .badge-pending { background: #7c2d12; color: #fdba74; }
         .badge-approved { background: #064e3b; color: #6ee7b7; }
         
         .sender { font-weight: bold; color: #f43f5e; font-size: 12pt; }
         .recipient-text { color: #38bdf8; }
+        .gift-tag { background: #d97706; color: white; padding: 2px 5px; border-radius: 4px; font-size: 9pt; margin-right: 5px;}
         .text { font-size: 14pt; margin: 5px 0; color: #e2e8f0; }
         .date { font-size: 9pt; color: #94a3b8; }
         .actions { display: flex; gap: 10px; flex-shrink: 0; }
@@ -56,9 +57,7 @@
         </div>
 
         <div id="admin-screen">
-            <div class="header-flex">
-                <h2>Üzenetek Kezelése</h2>
-            </div>
+            <div class="header-flex"><h2>Üzenetek Kezelése</h2></div>
 
             <div class="admin-pin-box">
                 <h3>📌 Kiemelt Admin Üzenet (TV Tetejére)</h3>
@@ -69,9 +68,7 @@
                 </div>
             </div>
 
-            <div id="list">
-                <p class="empty-msg">Betöltés...</p>
-            </div>
+            <div id="list"><p class="empty-msg">Betöltés...</p></div>
         </div>
     </div>
 
@@ -80,53 +77,37 @@
         import { getFirestore, collection, query, onSnapshot, doc, updateDoc, deleteDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         // IDE MÁSOLD BE A SAJÁT FIREBASE KULCSAIDAT!
-        const firebaseConfig = { 
-            apiKey: "AIzaSyDS6UEeb9o5XT7hCBOHMw-nADQkQrEXRIk", 
-            authDomain: "ootv-9ad58.firebaseapp.com", 
-            projectId: "ootv-9ad58" 
-        };
+        const firebaseConfig = { apiKey: "AIzaSyDS6UEeb9o5XT7hCBOHMw-nADQkQrEXRIk", authDomain: "ootv-9ad58.firebaseapp.com", projectId: "ootv-9ad58" };
         
-        // --- JELSZÓ ELLENŐRZÉS (SHA-256 HASH) ---
-        const validHash = "19cdbb7216dd0ba5d319eb7e69044ce57767e82342c72d7ace9497b9403c7001";
+        // "admin2026" SHA-256 lenyomata
+        const validHash = "32b217036d0e6f6630f576e109d73d63b51ee2bc09be4c87c26fb4c4ca6e4a2e";
 
         async function hashPassword(password) {
             const msgBuffer = new TextEncoder().encode(password);
             const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-            const hashArray = Array.from(new Uint8Array(hashBuffer));
-            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
         }
 
         document.getElementById('btn-login').addEventListener('click', async () => {
             const inputPw = document.getElementById('login-password').value;
             const inputHash = await hashPassword(inputPw);
-            
             if (inputHash === validHash) {
-                // Helyes jelszó!
                 document.getElementById('login-screen').style.display = "none";
                 document.getElementById('admin-screen').style.display = "block";
                 document.getElementById('login-error').style.display = "none";
-                startFirebase(); // Csak sikeres belépés után indítjuk el az adatbázist
-            } else {
-                // Hibás jelszó
-                document.getElementById('login-error').style.display = "block";
-            }
+                startFirebase(); 
+            } else { document.getElementById('login-error').style.display = "block"; }
         });
-        // ------------------------------------------
 
-        // Firebase logika (csak belépés után fut le)
         function startFirebase() {
             const app = initializeApp(firebaseConfig);
             const db = getFirestore(app);
 
-            // Admin kitűzés
             document.getElementById('btn-pin').addEventListener('click', async () => {
                 const text = document.getElementById('admin-msg').value;
                 if(!text) return;
                 try {
-                    await setDoc(doc(db, "messages", "PINNED_MESSAGE"), {
-                        name: "ADMIN", text: text, date: new Date().toLocaleTimeString('hu-HU', {hour: '2-digit', minute:'2-digit'}),
-                        approved: true, isPinned: true
-                    });
+                    await setDoc(doc(db, "messages", "PINNED_MESSAGE"), { name: "ADMIN", text: text, date: new Date().toLocaleTimeString('hu-HU', {hour: '2-digit', minute:'2-digit'}), approved: true, isPinned: true });
                     document.getElementById('admin-msg').value = "";
                 } catch (err) { alert("Hiba: " + err.message); }
             });
@@ -135,7 +116,6 @@
                 try { await deleteDoc(doc(db, "messages", "PINNED_MESSAGE")); } catch (err) { }
             });
 
-            // Üzenetek betöltése
             const q = query(collection(db, "messages"));
             
             onSnapshot(q, (snapshot) => {
@@ -155,6 +135,9 @@
                     const badge = isApproved ? '<span class="status-badge badge-approved">TV-n Élőben</span>' : '<span class="status-badge badge-pending">Várakozik</span>';
                     const approveButton = isApproved ? '' : `<button class="btn btn-approve" data-id="${id}">TV-re küld</button>`;
                     
+                    // Ajándék címke az admin panelen is
+                    const giftTag = data.isGift ? '<span class="gift-tag">🎁 AJÁNDÉK</span>' : '';
+
                     let adminSenderText = data.name;
                     if(data.recipient && data.recipient.trim() !== "") {
                         adminSenderText += ` ➔ <span class="recipient-text">Neki: ${data.recipient}</span>`;
@@ -164,7 +147,7 @@
                     div.className = `item ${statusClass}`;
                     div.innerHTML = `
                         <div class="content-box">
-                            <div class="sender">${adminSenderText} ${badge}</div>
+                            <div class="sender">${giftTag}${adminSenderText} ${badge}</div>
                             <div class="text">"${data.text}"</div>
                             <div class="date">${data.date}</div>
                         </div>
@@ -178,11 +161,9 @@
 
                 if(!hasNormalMessage) { list.innerHTML = '<p class="empty-msg">Nincs egyetlen üzenet sem.</p>'; }
 
-                // Eseménykezelők a gombokhoz
                 document.querySelectorAll('.btn-approve').forEach(btn => {
                     btn.addEventListener('click', async (e) => { await updateDoc(doc(db, "messages", e.target.getAttribute('data-id')), { approved: true }); });
                 });
-
                 document.querySelectorAll('.btn-del').forEach(btn => {
                     btn.addEventListener('click', async (e) => {
                         if(confirm("Biztosan törölni szeretnéd ezt az üzenetet?")) {
