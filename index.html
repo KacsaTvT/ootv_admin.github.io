@@ -7,17 +7,25 @@
     <style>
         body { font-family: 'Segoe UI', Arial, sans-serif; background: #0f172a; color: #f8fafc; padding: 20px; margin: 0; }
         .container { max-width: 600px; margin: 0 auto; }
-        
         #login-screen { text-align: center; margin-top: 50px; background: #1e293b; padding: 40px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
         #login-screen input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 6px; border: none; font-size: 11pt; box-sizing: border-box; text-align: center; }
         #btn-login { width: 100%; background: #38bdf8; color: #0f172a; padding: 12px; border: none; border-radius: 6px; font-weight: bold; font-size: 12pt; cursor: pointer; margin-top: 10px; }
         #btn-login:hover { background: #0ea5e9; }
         #login-error { color: #ef4444; margin-top: 10px; display: none; }
-
         #admin-screen { display: none; }
         .header-flex { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #334155; padding-bottom: 10px; margin-bottom: 20px; }
         h2 { color: #38bdf8; margin: 0; }
         
+        /* Statisztika */
+        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 30px; }
+        .stat-card { background: #1e293b; padding: 20px; border-radius: 8px; text-align: center; border-bottom: 4px solid #334155; }
+        .stat-total { border-color: #3b82f6; }
+        .stat-pending { border-color: #f59e0b; }
+        .stat-approved { border-color: #22c55e; }
+        .stat-value { font-size: 24pt; font-weight: bold; margin: 0 0 5px 0; }
+        .stat-label { color: #94a3b8; font-size: 9pt; text-transform: uppercase; font-weight: bold; letter-spacing: 1px; }
+        @media(max-width: 480px) { .stats-grid { grid-template-columns: 1fr; } }
+
         .admin-pin-box { background: #1e1b4b; border-left: 6px solid #a855f7; padding: 20px; border-radius: 8px; margin-bottom: 30px; }
         .admin-pin-box h3 { margin-top: 0; color: #d8b4fe; font-size: 14pt; }
         .admin-input { width: 100%; padding: 12px; border-radius: 6px; border: none; font-size: 12pt; margin-bottom: 10px; box-sizing: border-box; }
@@ -33,7 +41,6 @@
         .status-badge { font-size: 8pt; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; font-weight: bold; margin-left: 10px; }
         .badge-pending { background: #7c2d12; color: #fdba74; }
         .badge-approved { background: #064e3b; color: #6ee7b7; }
-        
         .sender { font-weight: bold; color: #f43f5e; font-size: 12pt; }
         .recipient-text { color: #38bdf8; }
         .gift-tag { background: #d97706; color: white; padding: 2px 5px; border-radius: 4px; font-size: 9pt; margin-right: 5px;}
@@ -46,9 +53,7 @@
     </style>
 </head>
 <body>
-
     <div class="container">
-        
         <div id="login-screen">
             <h2 style="margin-bottom: 20px;">Admin Belépés</h2>
             <input type="password" id="login-password" placeholder="Add meg a jelszót">
@@ -57,7 +62,23 @@
         </div>
 
         <div id="admin-screen">
-            <div class="header-flex"><h2>Üzenetek Kezelése</h2></div>
+            <div class="header-flex"><h2>Vezérlőpult</h2></div>
+
+            <!-- Statisztika Panel -->
+            <div class="stats-grid">
+                <div class="stat-card stat-total">
+                    <p class="stat-value" id="stat-total">0</p>
+                    <p class="stat-label">Összes beküldés</p>
+                </div>
+                <div class="stat-card stat-pending">
+                    <p class="stat-value" id="stat-pending" style="color: #fbbf24;">0</p>
+                    <p class="stat-label">Várakozik</p>
+                </div>
+                <div class="stat-card stat-approved">
+                    <p class="stat-value" id="stat-approved" style="color: #4ade80;">0</p>
+                    <p class="stat-label">TV-n Élőben</p>
+                </div>
+            </div>
 
             <div class="admin-pin-box">
                 <h3>📌 Kiemelt Admin Üzenet (TV Tetejére)</h3>
@@ -73,136 +94,126 @@
     </div>
 
     <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, query, onSnapshot, doc, updateDoc, deleteDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getFirestore, collection, query, onSnapshot, doc, updateDoc, deleteDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-// IDE MÁSOLD BE A SAJÁT FIREBASE KULCSAIDAT!
-const firebaseConfig = { apiKey: "AIzaSyDS6UEeb9o5XT7hCBOHMw-nADQkQrEXRIk", authDomain: "ootv-9ad58.firebaseapp.com", projectId: "ootv-9ad58" };
-
-const validHash = "19cdbb7216dd0ba5d319eb7e69044ce57767e82342c72d7ace9497b9403c7001";
-
-async function hashPassword(password) {
-    const msgBuffer = new TextEncoder().encode(password);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-    return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
-document.getElementById('btn-login').addEventListener('click', async () => {
-    const inputPw = document.getElementById('login-password').value;
-    const inputHash = await hashPassword(inputPw);
-    if (inputHash === validHash) {
-        document.getElementById('login-screen').style.display = "none";
-        document.getElementById('admin-screen').style.display = "block";
-        document.getElementById('login-error').style.display = "none";
-        startFirebase(); 
-    } else { document.getElementById('login-error').style.display = "block"; }
-});
-
-function startFirebase() {
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-
-    document.getElementById('btn-pin').addEventListener('click', async () => {
-        const text = document.getElementById('admin-msg').value;
-        if(!text) return;
-        try {
-            await setDoc(doc(db, "messages", "PINNED_MESSAGE"), { name: "ADMIN", text: text, date: new Date().toLocaleTimeString('hu-HU', {hour: '2-digit', minute:'2-digit'}), approved: true, isPinned: true });
-            document.getElementById('admin-msg').value = "";
-        } catch (err) { alert("Hiba: " + err.message); }
-    });
-
-    document.getElementById('btn-unpin').addEventListener('click', async () => {
-        try { await deleteDoc(doc(db, "messages", "PINNED_MESSAGE")); } catch (err) { }
-    });
-
-    const q = query(collection(db, "messages"));
-    
-    onSnapshot(q, (snapshot) => {
-        const list = document.getElementById('list');
-        list.innerHTML = "";
-        let messagesArray = [];
+        // IDE MÁSOLD BE A SAJÁT FIREBASE KULCSAIDAT!
+        const firebaseConfig = { apiKey: "AIzaSyDS6UEeb9o5XT7hCBOHMw-nADQkQrEXRIk", authDomain: "ootv-9ad58.firebaseapp.com", projectId: "ootv-9ad58" };
         
-        let countTotal = 0;
-        let countPending = 0;
-        let countApproved = 0;
-        
-        snapshot.forEach((documentSnap) => {
-            if(documentSnap.id === "PINNED_MESSAGE") return;
+        // "admin2026" jelszó
+        const validHash = "19cdbb7216dd0ba5d319eb7e69044ce57767e82342c72d7ace9497b9403c7001";
 
-            const data = documentSnap.data();
-            data.id = documentSnap.id;
-            
-            // 1. MINDEN beérkezett üzenetet számolunk, az archiváltakat is!
-            countTotal++; 
-
-            // 2. Ha az üzenet archiválva van, akkor átugorjuk (nem kerül be a látható listába)
-            if (data.archived === true) { return; }
-
-            data.sortTime = data.timestamp?.toMillis ? data.timestamp.toMillis() : Date.now();
-            messagesArray.push(data);
-
-            // 3. Csak a még aktív üzeneteket számoljuk a másik két statisztikába
-            if(data.approved === true) { countApproved++; } else { countPending++; }
-        });
-
-        document.getElementById('stat-total').innerText = countTotal;
-        document.getElementById('stat-pending').innerText = countPending;
-        document.getElementById('stat-approved').innerText = countApproved;
-
-        messagesArray.sort((a, b) => b.sortTime - a.sortTime);
-
-        if(messagesArray.length === 0) {
-            list.innerHTML = '<p class="empty-msg">Nincs egyetlen aktív üzenet sem.</p>'; 
-            return;
+        async function hashPassword(password) {
+            const msgBuffer = new TextEncoder().encode(password);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+            return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
         }
 
-        messagesArray.forEach((data) => {
-            const id = data.id;
-            const isApproved = data.approved === true;
-            const statusClass = isApproved ? 'approved' : 'pending';
-            const badge = isApproved ? '<span class="status-badge badge-approved">TV-n Élőben</span>' : '<span class="status-badge badge-pending">Várakozik</span>';
-            const approveButton = isApproved ? '' : `<button class="btn btn-approve" data-id="${id}">TV-re küld</button>`;
-            
-            const giftTag = data.isGift ? '<span class="gift-tag">🎁 AJÁNDÉK</span>' : '';
-
-            let adminSenderText = data.name;
-            if(data.recipient && data.recipient.trim() !== "") {
-                adminSenderText += ` ➔ <span class="recipient-text">Neki: ${data.recipient}</span>`;
-            }
-            
-            const div = document.createElement('div');
-            div.className = `item ${statusClass}`;
-            div.innerHTML = `
-                <div class="content-box">
-                    <div class="sender">${giftTag}${adminSenderText} ${badge}</div>
-                    <div class="text">"${data.text}"</div>
-                    <div class="date">${data.date}</div>
-                </div>
-                <div class="actions">
-                    ${approveButton}
-                    <button class="btn btn-del" data-id="${id}">Archivál</button>
-                </div>
-            `;
-            list.appendChild(div);
+        document.getElementById('btn-login').addEventListener('click', async () => {
+            const inputPw = document.getElementById('login-password').value;
+            const inputHash = await hashPassword(inputPw);
+            if (inputHash === validHash) {
+                document.getElementById('login-screen').style.display = "none";
+                document.getElementById('admin-screen').style.display = "block";
+                document.getElementById('login-error').style.display = "none";
+                startFirebase(); 
+            } else { document.getElementById('login-error').style.display = "block"; }
         });
 
-        document.querySelectorAll('.btn-approve').forEach(btn => {
-            btn.addEventListener('click', async (e) => { await updateDoc(doc(db, "messages", e.target.getAttribute('data-id')), { approved: true }); });
-        });
-        
-        // 4. TÖRLÉS HELYETT ARCHIVÁLÁS
-        document.querySelectorAll('.btn-del').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-                if(confirm("Biztosan elrejted ezt az üzenetet? (A statisztikában és az adatbázisban benne marad)")) {
-                    await updateDoc(doc(db, "messages", e.target.getAttribute('data-id')), { 
-                        approved: false, // Levesszük a TV-ről
-                        archived: true   // Elrejtjük az admin listából
-                    });
-                }
+        function startFirebase() {
+            const app = initializeApp(firebaseConfig);
+            const db = getFirestore(app);
+
+            document.getElementById('btn-pin').addEventListener('click', async () => {
+                const text = document.getElementById('admin-msg').value;
+                if(!text) return;
+                try {
+                    await setDoc(doc(db, "messages", "PINNED_MESSAGE"), { name: "ADMIN", text: text, date: new Date().toLocaleTimeString('hu-HU', {hour: '2-digit', minute:'2-digit'}), approved: true, isPinned: true });
+                    document.getElementById('admin-msg').value = "";
+                } catch (err) { alert("Hiba: " + err.message); }
             });
-        });
-    });
-}
+
+            document.getElementById('btn-unpin').addEventListener('click', async () => {
+                try { await deleteDoc(doc(db, "messages", "PINNED_MESSAGE")); } catch (err) { }
+            });
+
+            const q = query(collection(db, "messages"));
+            
+            onSnapshot(q, (snapshot) => {
+                const list = document.getElementById('list');
+                list.innerHTML = "";
+                let messagesArray = [];
+                let countTotal = 0;
+                let countPending = 0;
+                let countApproved = 0;
+                
+                snapshot.forEach((documentSnap) => {
+                    if(documentSnap.id === "PINNED_MESSAGE") return;
+                    const data = documentSnap.data();
+                    data.id = documentSnap.id;
+                    
+                    countTotal++; 
+
+                    // Ha archiválva van, statisztikába beleszámoltuk, de a listába nem tesszük bele
+                    if (data.archived === true) return; 
+
+                    data.sortTime = data.timestamp?.toMillis ? data.timestamp.toMillis() : Date.now();
+                    messagesArray.push(data);
+
+                    if(data.approved === true) { countApproved++; } else { countPending++; }
+                });
+
+                document.getElementById('stat-total').innerText = countTotal;
+                document.getElementById('stat-pending').innerText = countPending;
+                document.getElementById('stat-approved').innerText = countApproved;
+
+                messagesArray.sort((a, b) => b.sortTime - a.sortTime);
+
+                if(messagesArray.length === 0) {
+                    list.innerHTML = '<p class="empty-msg">Nincs egyetlen aktív üzenet sem.</p>'; 
+                    return;
+                }
+
+                messagesArray.forEach((data) => {
+                    const id = data.id;
+                    const isApproved = data.approved === true;
+                    const statusClass = isApproved ? 'approved' : 'pending';
+                    const badge = isApproved ? '<span class="status-badge badge-approved">TV-n Élőben</span>' : '<span class="status-badge badge-pending">Várakozik</span>';
+                    const approveButton = isApproved ? '' : `<button class="btn btn-approve" data-id="${id}">TV-re küld</button>`;
+                    const giftTag = data.isGift ? '<span class="gift-tag">🎁 AJÁNDÉK</span>' : '';
+
+                    let adminSenderText = data.name;
+                    if(data.recipient && data.recipient.trim() !== "") { adminSenderText += ` ➔ <span class="recipient-text">Neki: ${data.recipient}</span>`; }
+                    
+                    const div = document.createElement('div');
+                    div.className = `item ${statusClass}`;
+                    div.innerHTML = `
+                        <div class="content-box">
+                            <div class="sender">${giftTag}${adminSenderText} ${badge}</div>
+                            <div class="text">"${data.text}"</div>
+                            <div class="date">${data.date}</div>
+                        </div>
+                        <div class="actions">
+                            ${approveButton}
+                            <button class="btn btn-del" data-id="${id}">Archivál</button>
+                        </div>
+                    `;
+                    list.appendChild(div);
+                });
+
+                document.querySelectorAll('.btn-approve').forEach(btn => {
+                    btn.addEventListener('click', async (e) => { await updateDoc(doc(db, "messages", e.target.getAttribute('data-id')), { approved: true }); });
+                });
+                
+                document.querySelectorAll('.btn-del').forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        if(confirm("Biztosan elrejted ezt az üzenetet? (A statisztikában és az adatbázisban benne marad)")) {
+                            await updateDoc(doc(db, "messages", e.target.getAttribute('data-id')), { approved: false, archived: true });
+                        }
+                    });
+                });
+            });
+        }
     </script>
 </body>
 </html>
