@@ -73,117 +73,136 @@
     </div>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getFirestore, collection, query, onSnapshot, doc, updateDoc, deleteDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, query, onSnapshot, doc, updateDoc, deleteDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-        // IDE MÁSOLD BE A SAJÁT FIREBASE KULCSAIDAT!
-        const firebaseConfig = { apiKey: "AIzaSyDS6UEeb9o5XT7hCBOHMw-nADQkQrEXRIk", authDomain: "ootv-9ad58.firebaseapp.com", projectId: "ootv-9ad58" };
+// IDE MÁSOLD BE A SAJÁT FIREBASE KULCSAIDAT!
+const firebaseConfig = { apiKey: "AIzaSyDS6UEeb9o5XT7hCBOHMw-nADQkQrEXRIk", authDomain: "ootv-9ad58.firebaseapp.com", projectId: "ootv-9ad58" };
+
+const validHash = "19cdbb7216dd0ba5d319eb7e69044ce57767e82342c72d7ace9497b9403c7001";
+
+async function hashPassword(password) {
+    const msgBuffer = new TextEncoder().encode(password);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+    return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+document.getElementById('btn-login').addEventListener('click', async () => {
+    const inputPw = document.getElementById('login-password').value;
+    const inputHash = await hashPassword(inputPw);
+    if (inputHash === validHash) {
+        document.getElementById('login-screen').style.display = "none";
+        document.getElementById('admin-screen').style.display = "block";
+        document.getElementById('login-error').style.display = "none";
+        startFirebase(); 
+    } else { document.getElementById('login-error').style.display = "block"; }
+});
+
+function startFirebase() {
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    document.getElementById('btn-pin').addEventListener('click', async () => {
+        const text = document.getElementById('admin-msg').value;
+        if(!text) return;
+        try {
+            await setDoc(doc(db, "messages", "PINNED_MESSAGE"), { name: "ADMIN", text: text, date: new Date().toLocaleTimeString('hu-HU', {hour: '2-digit', minute:'2-digit'}), approved: true, isPinned: true });
+            document.getElementById('admin-msg').value = "";
+        } catch (err) { alert("Hiba: " + err.message); }
+    });
+
+    document.getElementById('btn-unpin').addEventListener('click', async () => {
+        try { await deleteDoc(doc(db, "messages", "PINNED_MESSAGE")); } catch (err) { }
+    });
+
+    const q = query(collection(db, "messages"));
+    
+    onSnapshot(q, (snapshot) => {
+        const list = document.getElementById('list');
+        list.innerHTML = "";
+        let messagesArray = [];
         
-        // Az "" jelszó lenyomata
-        const validHash = "19cdbb7216dd0ba5d319eb7e69044ce57767e82342c72d7ace9497b9403c7001";
+        let countTotal = 0;
+        let countPending = 0;
+        let countApproved = 0;
+        
+        snapshot.forEach((documentSnap) => {
+            if(documentSnap.id === "PINNED_MESSAGE") return;
 
-        async function hashPassword(password) {
-            const msgBuffer = new TextEncoder().encode(password);
-            const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-            return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
-        }
+            const data = documentSnap.data();
+            data.id = documentSnap.id;
+            
+            // 1. MINDEN beérkezett üzenetet számolunk, az archiváltakat is!
+            countTotal++; 
 
-        document.getElementById('btn-login').addEventListener('click', async () => {
-            const inputPw = document.getElementById('login-password').value;
-            const inputHash = await hashPassword(inputPw);
-            if (inputHash === validHash) {
-                document.getElementById('login-screen').style.display = "none";
-                document.getElementById('admin-screen').style.display = "block";
-                document.getElementById('login-error').style.display = "none";
-                startFirebase(); 
-            } else { document.getElementById('login-error').style.display = "block"; }
+            // 2. Ha az üzenet archiválva van, akkor átugorjuk (nem kerül be a látható listába)
+            if (data.archived === true) { return; }
+
+            data.sortTime = data.timestamp?.toMillis ? data.timestamp.toMillis() : Date.now();
+            messagesArray.push(data);
+
+            // 3. Csak a még aktív üzeneteket számoljuk a másik két statisztikába
+            if(data.approved === true) { countApproved++; } else { countPending++; }
         });
 
-        function startFirebase() {
-            const app = initializeApp(firebaseConfig);
-            const db = getFirestore(app);
+        document.getElementById('stat-total').innerText = countTotal;
+        document.getElementById('stat-pending').innerText = countPending;
+        document.getElementById('stat-approved').innerText = countApproved;
 
-            document.getElementById('btn-pin').addEventListener('click', async () => {
-                const text = document.getElementById('admin-msg').value;
-                if(!text) return;
-                try {
-                    await setDoc(doc(db, "messages", "PINNED_MESSAGE"), { name: "ADMIN", text: text, date: new Date().toLocaleTimeString('hu-HU', {hour: '2-digit', minute:'2-digit'}), approved: true, isPinned: true });
-                    document.getElementById('admin-msg').value = "";
-                } catch (err) { alert("Hiba: " + err.message); }
-            });
+        messagesArray.sort((a, b) => b.sortTime - a.sortTime);
 
-            document.getElementById('btn-unpin').addEventListener('click', async () => {
-                try { await deleteDoc(doc(db, "messages", "PINNED_MESSAGE")); } catch (err) { }
-            });
-
-            const q = query(collection(db, "messages"));
-            
-            onSnapshot(q, (snapshot) => {
-                const list = document.getElementById('list');
-                list.innerHTML = "";
-                let messagesArray = [];
-                
-                snapshot.forEach((documentSnap) => {
-                    if(documentSnap.id === "PINNED_MESSAGE") return;
-
-                    const data = documentSnap.data();
-                    data.id = documentSnap.id;
-                    
-                    // JAVÍTÁS: Ha a szerveridő még nem jött meg, használjuk az azonnali mostani időt (Date.now())
-                    data.sortTime = data.timestamp?.toMillis ? data.timestamp.toMillis() : Date.now();
-                    messagesArray.push(data);
-                });
-
-                // Admin listát is csökkenő sorrendbe rendezzük
-                messagesArray.sort((a, b) => b.sortTime - a.sortTime);
-
-                if(messagesArray.length === 0) {
-                    list.innerHTML = '<p class="empty-msg">Nincs egyetlen üzenet sem.</p>'; 
-                    return;
-                }
-
-                messagesArray.forEach((data) => {
-                    const id = data.id;
-                    const isApproved = data.approved === true;
-                    const statusClass = isApproved ? 'approved' : 'pending';
-                    const badge = isApproved ? '<span class="status-badge badge-approved">TV-n Élőben</span>' : '<span class="status-badge badge-pending">Várakozik</span>';
-                    const approveButton = isApproved ? '' : `<button class="btn btn-approve" data-id="${id}">TV-re küld</button>`;
-                    
-                    const giftTag = data.isGift ? '<span class="gift-tag">🎁 AJÁNDÉK</span>' : '';
-
-                    let adminSenderText = data.name;
-                    if(data.recipient && data.recipient.trim() !== "") {
-                        adminSenderText += ` ➔ <span class="recipient-text">Neki: ${data.recipient}</span>`;
-                    }
-                    
-                    const div = document.createElement('div');
-                    div.className = `item ${statusClass}`;
-                    div.innerHTML = `
-                        <div class="content-box">
-                            <div class="sender">${giftTag}${adminSenderText} ${badge}</div>
-                            <div class="text">"${data.text}"</div>
-                            <div class="date">${data.date}</div>
-                        </div>
-                        <div class="actions">
-                            ${approveButton}
-                            <button class="btn btn-del" data-id="${id}">Töröl</button>
-                        </div>
-                    `;
-                    list.appendChild(div);
-                });
-
-                document.querySelectorAll('.btn-approve').forEach(btn => {
-                    btn.addEventListener('click', async (e) => { await updateDoc(doc(db, "messages", e.target.getAttribute('data-id')), { approved: true }); });
-                });
-                document.querySelectorAll('.btn-del').forEach(btn => {
-                    btn.addEventListener('click', async (e) => {
-                        if(confirm("Biztosan törölni szeretnéd ezt az üzenetet?")) {
-                            await deleteDoc(doc(db, "messages", e.target.getAttribute('data-id')));
-                        }
-                    });
-                });
-            });
+        if(messagesArray.length === 0) {
+            list.innerHTML = '<p class="empty-msg">Nincs egyetlen aktív üzenet sem.</p>'; 
+            return;
         }
+
+        messagesArray.forEach((data) => {
+            const id = data.id;
+            const isApproved = data.approved === true;
+            const statusClass = isApproved ? 'approved' : 'pending';
+            const badge = isApproved ? '<span class="status-badge badge-approved">TV-n Élőben</span>' : '<span class="status-badge badge-pending">Várakozik</span>';
+            const approveButton = isApproved ? '' : `<button class="btn btn-approve" data-id="${id}">TV-re küld</button>`;
+            
+            const giftTag = data.isGift ? '<span class="gift-tag">🎁 AJÁNDÉK</span>' : '';
+
+            let adminSenderText = data.name;
+            if(data.recipient && data.recipient.trim() !== "") {
+                adminSenderText += ` ➔ <span class="recipient-text">Neki: ${data.recipient}</span>`;
+            }
+            
+            const div = document.createElement('div');
+            div.className = `item ${statusClass}`;
+            div.innerHTML = `
+                <div class="content-box">
+                    <div class="sender">${giftTag}${adminSenderText} ${badge}</div>
+                    <div class="text">"${data.text}"</div>
+                    <div class="date">${data.date}</div>
+                </div>
+                <div class="actions">
+                    ${approveButton}
+                    <button class="btn btn-del" data-id="${id}">Archivál</button>
+                </div>
+            `;
+            list.appendChild(div);
+        });
+
+        document.querySelectorAll('.btn-approve').forEach(btn => {
+            btn.addEventListener('click', async (e) => { await updateDoc(doc(db, "messages", e.target.getAttribute('data-id')), { approved: true }); });
+        });
+        
+        // 4. TÖRLÉS HELYETT ARCHIVÁLÁS
+        document.querySelectorAll('.btn-del').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                if(confirm("Biztosan elrejted ezt az üzenetet? (A statisztikában és az adatbázisban benne marad)")) {
+                    await updateDoc(doc(db, "messages", e.target.getAttribute('data-id')), { 
+                        approved: false, // Levesszük a TV-ről
+                        archived: true   // Elrejtjük az admin listából
+                    });
+                }
+            });
+        });
+    });
+}
     </script>
 </body>
 </html>
